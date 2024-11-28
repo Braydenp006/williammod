@@ -1,0 +1,12 @@
+{
+  "entity.william.ambient": {
+    "sounds": ["williammod:william_idle"]
+  },
+  "entity.william.hurt": {
+    "subtitles": "sound.williammod.willam.hurt",
+    "sounds": ["williammod:william_hurt"]
+  },
+  "entity.william.death": {
+    "sounds": ["williammod:william_dead"]
+  }
+}
