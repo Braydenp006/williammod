@@ -1,43 +1,34 @@
 package net.brayden.williammod.entity.client;
-// Made with Blockbench 4.11.2
-// Exported for Minecraft version 1.17 or later with Mojang mappings
-// Paste this class into your mod and generate all required imports
+// Made with Blockbench 4.11.2, ported to the Minecraft 26.x render-state model API
 
-
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.brayden.williammod.entity.animations.ModAnimationDefinition;
-import net.brayden.williammod.entity.custom.WilliamEntity;
-import net.minecraft.client.model.HierarchicalModel;
+import net.minecraft.client.animation.KeyframeAnimation;
+import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.*;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
 
-public class WilliamModel<T extends Entity> extends HierarchicalModel<T> {
-	private final ModelPart William;
+public class WilliamModel extends EntityModel<WilliamRenderState> {
 	private final ModelPart h_head;
-	private final ModelPart body;
-	private final ModelPart LeftArm;
-	private final ModelPart RightArm;
-	private final ModelPart LeftLeg;
-	private final ModelPart RightLeg;
-	private final ModelPart Torso;
-	private final ModelPart LowerLegRight;
-	private final ModelPart LowerLegLeft;
+	private final KeyframeAnimation sit;
+	private final KeyframeAnimation sitIdle;
+	private final KeyframeAnimation standUp;
+	private final KeyframeAnimation dance;
+	private final KeyframeAnimation idle;
+	private final KeyframeAnimation walk;
+	private final KeyframeAnimation joinking;
 
 	public WilliamModel(ModelPart root) {
-		this.William = root.getChild("William");
-		this.h_head = this.William.getChild("h_head");
-		this.body = this.William.getChild("body");
-		this.LeftArm = this.William.getChild("body").getChild("LeftArm");
-		this.RightArm = this.William.getChild("body").getChild("RightArm");
-		this.LeftLeg = this.William.getChild("body").getChild("LeftLeg");
-		this.RightLeg = this.William.getChild("body").getChild("RightLeg");
-		this.Torso = this.William.getChild("body").getChild("Torso");
-		this.LowerLegRight = this.William.getChild("body").getChild("LowerLegRight");
-		this.LowerLegLeft = this.William.getChild("body").getChild("LowerLegLeft");
+		super(root);
+		this.h_head = root.getChild("William").getChild("h_head");
+		this.sit = ModAnimationDefinition.SIT.bake(root);
+		this.sitIdle = ModAnimationDefinition.SITIDLE.bake(root);
+		this.standUp = ModAnimationDefinition.STANDUP.bake(root);
+		this.dance = ModAnimationDefinition.DANCE.bake(root);
+		this.idle = ModAnimationDefinition.IDLE.bake(root);
+		this.walk = ModAnimationDefinition.WALK.bake(root);
+		this.joinking = ModAnimationDefinition.JOINKING.bake(root);
 	}
 
 	public static LayerDefinition createBodyLayer() {
@@ -89,45 +80,30 @@ public class WilliamModel<T extends Entity> extends HierarchicalModel<T> {
 	}
 
 	@Override
-	public void setupAnim(T entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
-		this.root().getAllParts().forEach(ModelPart::resetPose);
-		this.applyHeadRotation(netHeadYaw, headPitch, ageInTicks);
+	public void setupAnim(WilliamRenderState state) {
+		super.setupAnim(state);
+		this.applyHeadRotation(state.yRot, state.xRot);
 
-		if(entity instanceof WilliamEntity williamEntity) {
-			boolean isSitting = williamEntity.isSitting();
-			boolean isStanding = williamEntity.startStandingAnimation;
-			if (isSitting) {
-				this.animate(williamEntity.sittingAnimationState, ModAnimationDefinition.SIT, ageInTicks, 1f);
-				this.animate(williamEntity.sitPoseAnimationState, ModAnimationDefinition.SITIDLE, ageInTicks, 1f);
-			}else if (isStanding) {
-				this.animate(williamEntity.standAnimationState, ModAnimationDefinition.STANDUP, ageInTicks, 1f);
-			} if (williamEntity.isPartyWill()){
-				this.animate(williamEntity.danceAnimationState, ModAnimationDefinition.DANCE, ageInTicks, 1f);
-			} else{
-				this.animate(williamEntity.idleAnimationState, ModAnimationDefinition.IDLE, ageInTicks, 1f);
-				this.animateWalk(ModAnimationDefinition.WALK, limbSwing, limbSwingAmount, 2f, 2.5f);
-				this.animate(williamEntity.jerkAnimationState, ModAnimationDefinition.JOINKING, ageInTicks, 1f);
-			}
+		if (state.isSitting) {
+			this.sit.apply(state.sittingAnimationState, state.ageInTicks);
+			this.sitIdle.apply(state.sitPoseAnimationState, state.ageInTicks);
+		} else if (state.isStanding) {
+			this.standUp.apply(state.standAnimationState, state.ageInTicks);
 		}
-
+		if (state.isPartyWill) {
+			this.dance.apply(state.danceAnimationState, state.ageInTicks);
+		} else {
+			this.idle.apply(state.idleAnimationState, state.ageInTicks);
+			this.walk.applyWalk(state.walkAnimationPos, state.walkAnimationSpeed, 2f, 2.5f);
+			this.joinking.apply(state.jerkAnimationState, state.ageInTicks);
+		}
 	}
 
-	private void applyHeadRotation(float pNetHeadYaw, float pHeadPitch, float pAgeInTicks){
+	private void applyHeadRotation(float pNetHeadYaw, float pHeadPitch){
 		pNetHeadYaw = Mth.clamp(pNetHeadYaw, -30.0F, 30.0F);
 		pHeadPitch = Mth.clamp(pHeadPitch, -25.0F, 25.0F);
 
 		this.h_head.yRot = pNetHeadYaw * ((float) Math.PI / 180F);
 		this.h_head.xRot = pHeadPitch * ((float)Math.PI / 180F);
-
-	}
-
-	@Override
-	public void renderToBuffer(PoseStack poseStack, VertexConsumer vertexConsumer, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
-		William.render(poseStack, vertexConsumer, packedLight, packedOverlay, red, green, blue, alpha);
-	}
-
-	@Override
-	public ModelPart root() {
-		return William;
 	}
 }

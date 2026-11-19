@@ -5,10 +5,10 @@ import net.brayden.williammod.entity.client.ModModelLayers;
 import net.brayden.williammod.entity.client.WilliamModel;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-@Mod.EventBusSubscriber(modid = WilliamMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = WilliamMod.MODID, value = Dist.CLIENT)
 
 public class ModEventsBusClientEvents {
     @SubscribeEvent

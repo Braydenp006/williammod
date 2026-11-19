@@ -5,8 +5,8 @@ import net.minecraft.world.entity.ai.goal.FollowOwnerGoal;
 public class TamableAIFollowOwner extends FollowOwnerGoal {
     private final WilliamEntity williamEntity;
 
-    public TamableAIFollowOwner(WilliamEntity williamEntity, double speed, float minDist, float maxDist, boolean teleport) {
-        super(williamEntity, speed, minDist, maxDist, teleport);
+    public TamableAIFollowOwner(WilliamEntity williamEntity, double speed, float minDist, float maxDist) {
+        super(williamEntity, speed, minDist, maxDist);
         this.williamEntity = williamEntity;
     }
 

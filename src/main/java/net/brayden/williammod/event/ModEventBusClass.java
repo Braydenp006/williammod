@@ -4,10 +4,10 @@ import net.brayden.williammod.WilliamMod;
 import net.brayden.williammod.entity.ModEntities;
 import net.brayden.williammod.entity.custom.WilliamEntity;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-@Mod.EventBusSubscriber(modid = WilliamMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(modid = WilliamMod.MODID)
 
 public class ModEventBusClass {
 

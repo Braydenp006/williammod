@@ -3,7 +3,12 @@ package net.brayden.williammod.entity.custom;
 import net.brayden.williammod.entity.ModEntities;
 import net.brayden.williammod.entity.sounds.ModSounds;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -19,24 +24,21 @@ import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.*;
-import net.minecraft.world.entity.animal.Cat;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.feline.Cat;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.AbstractArrow;
-import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
 import net.minecraft.world.item.*;
-import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gameevent.GameEvent;
-import net.minecraft.world.level.pathfinder.BlockPathTypes;
+import net.minecraft.world.level.pathfinder.PathType;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.Nullable;
-import java.util.UUID;
 
 
-public class WilliamEntity extends TamableAnimal implements NeutralMob {
+public class WilliamEntity extends TamableAnimal {
 
     private static final EntityDataAccessor<Boolean> STANDING = SynchedEntityData.defineId(WilliamEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> SITTING = SynchedEntityData.defineId(WilliamEntity.class, EntityDataSerializers.BOOLEAN);
@@ -65,8 +67,8 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
 
     public WilliamEntity(EntityType type, Level world) {
         super(type, world);
-        this.setPathfindingMalus(BlockPathTypes.WATER_BORDER, 0.0F);
-        this.setTame(false);
+        this.setPathfindingMalus(PathType.WATER_BORDER, 0.0F);
+        this.setTame(false, false);
     }
 
     protected float getWaterSlowDown() {
@@ -90,10 +92,10 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
         this.goalSelector.addGoal(0, new SitWhenOrderedToGoal(this));
         this.goalSelector.addGoal(1, new FloatGoal(this));
         this.goalSelector.addGoal(2, new BreedGoal(this, 1.0D));
-        this.goalSelector.addGoal(3, new net.brayden.williammod.entity.custom.TamableAIFollowOwner(this, 1.3D, 10.0F, 2.0F, false));
+        this.goalSelector.addGoal(3, new TamableAIFollowOwner(this, 1.3D, 10.0F, 2.0F));
         this.goalSelector.addGoal(4, new WaterAvoidingRandomStrollGoal(this, 1.0D));
-        this.goalSelector.addGoal(5, new TemptGoal(this, 1.1D, Ingredient.of(Items.COAL), false));
-        this.goalSelector.addGoal(5, new TemptGoal(this, 1.1D, Ingredient.of(Items.GOLD_NUGGET), false));
+        this.goalSelector.addGoal(5, new TemptGoal(this, 1.1D, stack -> stack.is(Items.COAL), false));
+        this.goalSelector.addGoal(5, new TemptGoal(this, 1.1D, stack -> stack.is(Items.GOLD_NUGGET), false));
         this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 10.0f));
         this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
     }
@@ -117,12 +119,12 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
         ItemStack itemstack = player.getItemInHand(hand);
         InteractionResult type = super.mobInteract(player, hand);
         boolean owner = this.isTame() && isOwnedBy(player);
-        if (this.level().isClientSide) {
+        if (this.level().isClientSide()) {
             boolean flag = this.isOwnedBy(player) || this.isTame() || itemstack.is(Items.COAL) && !this.isTame();
             return flag ? InteractionResult.CONSUME : InteractionResult.PASS;
         } else if (this.isTame()) {
             if (this.isFood(itemstack) && this.getHealth() < this.getMaxHealth()) {
-                this.heal((float)itemstack.getFoodProperties(this).getNutrition());
+                this.heal((float)itemstack.get(DataComponents.FOOD).nutrition());
                 if (!player.getAbilities().instabuild) {
                     itemstack.shrink(1);
                 }
@@ -140,13 +142,13 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
                         //player.displayClientMessage(Component.translatable("entity.alexsmobs.all.command_" + this.getCommand(), this.getName()), true);
                         boolean sit = this.getCommand() == 2;
                         if (sit) {
-                            player.displayClientMessage(Component.translatable("William Is Sitting", this.getName()),true);
+                            player.sendOverlayMessage(Component.translatable("William Is Sitting", this.getName()));
                             this.forcedSit = true;
                             this.setOrderedToSit(true);
                             this.navigation.stop();
                             return InteractionResult.SUCCESS;
                         }else{
-                            player.displayClientMessage(Component.translatable("William Is Standing", this.getName()),true);
+                            player.sendOverlayMessage(Component.translatable("William Is Standing", this.getName()));
                             this.forcedSit = false;
                             this.setOrderedToSit(false);
                             return InteractionResult.SUCCESS;
@@ -177,7 +179,8 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
     }
 
 
-    public void addAdditionalSaveData(CompoundTag compound) {
+    @Override
+    protected void addAdditionalSaveData(ValueOutput compound) {
         super.addAdditionalSaveData(compound);
         compound.putBoolean("WilliamSitting", this.isSitting());
         compound.putBoolean("ForcedToSit", this.forcedSit);
@@ -185,11 +188,12 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
     }
 
 
-    public void readAdditionalSaveData(CompoundTag compound) {
+    @Override
+    protected void readAdditionalSaveData(ValueInput compound) {
         super.readAdditionalSaveData(compound);
-        this.setOrderedToSit(compound.getBoolean("WilliamSitting"));
-        this.forcedSit = compound.getBoolean("ForcedToSit");
-        this.setCommand(compound.getInt("WilliamCommand"));
+        this.setOrderedToSit(compound.getBooleanOr("WilliamSitting", false));
+        this.forcedSit = compound.getBooleanOr("ForcedToSit", false);
+        this.setCommand(compound.getIntOr("WilliamCommand", 0));
     }
 
     public void setCommand(int command) {
@@ -209,18 +213,19 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
     }
 
     public static boolean isWilliamFood(ItemStack stack) {
-        return stack.isEdible() || stack.is(Items.COOKED_BEEF);
+        return stack.has(DataComponents.FOOD) || stack.is(Items.COOKED_BEEF);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
-        return Mob.createMobAttributes().
+        return Animal.createAnimalAttributes().
                 add(Attributes.MOVEMENT_SPEED, (double) 0.3F).
                 add(Attributes.MAX_HEALTH, 12.0D).
                 add(Attributes.ATTACK_DAMAGE, 2.0D);
     }
 
-    public boolean hurt(DamageSource source, float amount) {
-        if (this.isInvulnerableTo(source)) {
+    @Override
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        if (this.isInvulnerableTo(level, source)) {
             return false;
         } else {
             Entity entity = source.getEntity();
@@ -228,14 +233,14 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
             if (entity != null && this.isTame() && !(entity instanceof Player) && !(entity instanceof AbstractArrow)) {
                 amount = (amount + 1.0F) / 4.0F;
             }
-            return super.hurt(source, amount);
+            return super.hurtServer(level, source, amount);
         }
     }
 
     @Override
     protected void updateControlFlags() {
         boolean flag = !(this.getControllingPassenger() instanceof Mob);
-        boolean flag1 = !(this.getVehicle() instanceof Boat);
+        boolean flag1 = !(this.getVehicle() instanceof AbstractBoat);
         this.goalSelector.setControlFlag(Goal.Flag.MOVE, flag);
         this.goalSelector.setControlFlag(Goal.Flag.JUMP, flag && flag1);
         this.goalSelector.setControlFlag(Goal.Flag.LOOK, flag);
@@ -260,8 +265,8 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
                 if (entity instanceof Cat) {  // If entity is a bat
                     Cat cat = (Cat) entity;
                     if (!cat.isTame()) {
-                        cat.setTame(true);
-                        cat.setOwnerUUID(this.getOwnerUUID());
+                        cat.setTame(true, true);
+                        cat.setOwnerReference(this.getOwnerReference());
                         jerkAnimationState.start(this.tickCount);
                         isJerking = true;
                         jerkcount = 0;
@@ -358,11 +363,10 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
         this.heal(10);
         this.level().broadcastEntityEvent(this, (byte) 92);
         this.gameEvent(GameEvent.EAT);
-        this.playSound(SoundEvents.GENERIC_EAT, this.getSoundVolume(), this.getVoicePitch());
+        this.playSound(SoundEvents.GENERIC_EAT.value(), this.getSoundVolume(), this.getVoicePitch());
     }
 
 
-    @OnlyIn(Dist.CLIENT)
     public void handleEntityEvent(byte id) {
         if (id == 99) { // Custom event ID for death animation
             this.deadAnimationState.start(this.tickCount); // Start animation on client
@@ -383,11 +387,11 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
 
 
     @Override
-    protected void defineSynchedData() {
-        super.defineSynchedData();
-        this.entityData.define(STANDING, false);
-        this.entityData.define(SITTING, false);
-        this.entityData.define(COMMAND, 0);
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(STANDING, false);
+        builder.define(SITTING, false);
+        builder.define(COMMAND, 0);
     }
     private void setupAnimationStates() {
         if (this.isAlive()) {
@@ -408,16 +412,19 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
         } else {
             f = 0;
         }
-        this.walkAnimation.update(f, 0.2f);
+        this.walkAnimation.update(f, 0.2f, 1f);
     }
     @Override
-    protected void dropCustomDeathLoot(DamageSource damageSource, int lootingMultiplier, boolean wasRecentlyHit) {
-        super.dropCustomDeathLoot(damageSource, lootingMultiplier, wasRecentlyHit); // Call the parent method to keep default drops
+    protected void dropCustomDeathLoot(ServerLevel level, DamageSource damageSource, boolean wasRecentlyHit) {
+        super.dropCustomDeathLoot(level, damageSource, wasRecentlyHit); // Call the parent method to keep default drops
+        int lootingMultiplier = damageSource.getEntity() instanceof LivingEntity killer
+                ? EnchantmentHelper.getEnchantmentLevel(level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.LOOTING), killer)
+                : 0;
 
         // Drop a specific item
         ItemStack namedGoldNugget = new ItemStack(Items.GOLD_NUGGET);
-        namedGoldNugget.setHoverName(Component.literal("Coins"));
-        this.spawnAtLocation(namedGoldNugget, 1 + lootingMultiplier); // Drops 2 Coal, +1 per looting level
+        namedGoldNugget.set(DataComponents.CUSTOM_NAME, Component.literal("Coins"));
+        this.spawnAtLocation(level, namedGoldNugget, 1f + lootingMultiplier); // Drops 2 Coal, +1 per looting level
 
         // Drop a custom item
         /*ItemStack customItem = new ItemStack(Items.DIAMOND); // Replace with your modded item if needed
@@ -425,19 +432,19 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
         this.spawnAtLocation(customItem);*/
         if (this.random.nextFloat() < 0.1f + (0.1f * lootingMultiplier)) { // 10% chance, increased by looting
             ItemStack namedBone = new ItemStack(Items.BONE);
-            namedBone.setHoverName(Component.literal("Blow My Back Out"));
-            this.spawnAtLocation(namedBone);
+            namedBone.set(DataComponents.CUSTOM_NAME, Component.literal("Blow My Back Out"));
+            this.spawnAtLocation(level, namedBone);
         }
         // Conditional drop example
         if (this.random.nextFloat() < 0.03f + (0.1f * lootingMultiplier)) { // 3% chance, increased by looting
             ItemStack namedWetSponge = new ItemStack(Items.WET_SPONGE);
-            namedWetSponge.setHoverName(Component.literal("Was I wet enough?"));
-            this.spawnAtLocation(namedWetSponge);
+            namedWetSponge.set(DataComponents.CUSTOM_NAME, Component.literal("Was I wet enough?"));
+            this.spawnAtLocation(level, namedWetSponge);
         }
         if (this.random.nextFloat() < 0.05f + (0.1f * lootingMultiplier)) { // 3% chance, increased by looting
             ItemStack namedSlime = new ItemStack(Items.SLIME_BALL);
-            namedSlime.setHoverName(Component.literal("Bounce on it vro"));
-            this.spawnAtLocation(namedSlime);
+            namedSlime.set(DataComponents.CUSTOM_NAME, Component.literal("Bounce on it vro"));
+            this.spawnAtLocation(level, namedSlime);
         }
     }
 
@@ -468,7 +475,7 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
         throwCoalBack(goldItem);
     }
     private void throwCoalBack(ItemEntity goldItem) {
-        Level world = this.getCommandSenderWorld();
+        Level world = this.level();
         // Create a new ItemEntity for coal
         ItemEntity coalItem = new ItemEntity(world, this.getX(), this.getY() +1, this.getZ(), new ItemStack(Items.COAL));
 
@@ -480,13 +487,13 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
         coalItem.setDeltaMovement(velocityX, velocityY, velocityZ);
 
         // Spawn the coal item in the world
-        this.getCommandSenderWorld().addFreshEntity(coalItem);
+        this.level().addFreshEntity(coalItem);
     }
 
     @Nullable
     @Override
     public AgeableMob getBreedOffspring(ServerLevel pLevel, AgeableMob pOtherParent) {
-        return ModEntities.WILLIAM.get().create(pLevel);
+        return ModEntities.WILLIAM.get().create(pLevel, EntitySpawnReason.BREEDING);
     }
 
     public void travel(Vec3 vec3d) {
@@ -499,56 +506,7 @@ public class WilliamEntity extends TamableAnimal implements NeutralMob {
         super.travel(vec3d);
     }
 
-    @Override
-    public int getRemainingPersistentAngerTime() {
-        return 0;
-    }
-
-    @Override
-    public void setRemainingPersistentAngerTime(int pRemainingPersistentAngerTime) {
-
-    }
-
-    @Override
-    public @Nullable UUID getPersistentAngerTarget() {
-        return null;
-    }
-
-    @Override
-    public void setPersistentAngerTarget(@Nullable UUID pPersistentAngerTarget) {
-
-    }
-
-    @Override
-    public void startPersistentAngerTimer() {
-
-    }
-
     public boolean shouldFollow() {
         return getCommand() == 1;
     }
-
-    class StrollGoal extends MoveThroughVillageGoal {
-        public StrollGoal(int p_i50726_3_) {
-            super(WilliamEntity.this, 1.0D, true, p_i50726_3_, () -> false);
-        }
-
-        public void start() {
-            super.start();
-        }
-
-        public boolean canUse() {
-            return super.canUse() && this.canFoxMove();
-        }
-
-        public boolean canContinueToUse() {
-            return super.canContinueToUse() && this.canFoxMove();
-        }
-
-        private boolean canFoxMove() {
-            return !WilliamEntity.this.isSitting();
-        }
-    }
-
 }
-
