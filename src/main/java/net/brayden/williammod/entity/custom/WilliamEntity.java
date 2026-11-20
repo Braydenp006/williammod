@@ -248,20 +248,22 @@ public class WilliamEntity extends TamableAnimal {
 
     public void tick() {
         super.tick();
+        // The nearby-entity scans below are expensive, so only run them every second (20 ticks).
+        boolean runScans = this.tickCount % 20 == 0;
 
         if(this.isTame()) {
             if(isPartyWill()){
                 if(willDancing) {
                     danceAnimationState.start(this.tickCount);
-                    System.out.println("dance vro");
+                    //System.out.println("dance vro");
                     willDancing = false;
                 }
             }else{
                 danceAnimationState.stop();
                 willDancing = true;
-                System.out.println("no dance");
+                //System.out.println("no dance");
             }
-            for (Entity entity : this.level().getEntities(this, this.getBoundingBox().inflate(5.0))) {  // Search nearby entities
+            if (runScans) for (Entity entity : this.level().getEntities(this, this.getBoundingBox().inflate(5.0))) {  // Search nearby entities
                 if (entity instanceof Cat) {  // If entity is a bat
                     Cat cat = (Cat) entity;
                     if (!cat.isTame()) {
@@ -283,7 +285,7 @@ public class WilliamEntity extends TamableAnimal {
             }
         }
         // Find the closest WilliamEntity within a radius (e.g., 10 blocks)
-        for (Entity entity : this.level().getEntities(this, this.getBoundingBox().inflate(10.0))) {
+        if (runScans && !this.level().isClientSide()) for (Entity entity : this.level().getEntities(this, this.getBoundingBox().inflate(10.0))) {
             if (entity instanceof WilliamEntity) {
                 // Make the bat fly in circles around William's head
                 WilliamEntity william = (WilliamEntity) entity;
@@ -321,7 +323,7 @@ public class WilliamEntity extends TamableAnimal {
                 this.standAnimationState.start(this.tickCount);}
         }if(!this.isSitting() &&standProgress >= maxStandTime){
             this.setStanding(true);
-            checkForGoldAndPickItUp();
+            if (runScans && !this.level().isClientSide()) checkForGoldAndPickItUp();
             this.startStandingAnimation = false;
             standAnimationState.stop();
         }
